@@ -1,11 +1,20 @@
 package scheduler
 
-import "time"
+import (
+	"time"
+
+	runtimestate "github.com/alexthestreet/focus-gremlin/internal/runtime"
+)
 
 type Options struct {
 	Interval    time.Duration
 	ActiveStart string
 	ActiveEnd   string
+}
+
+type Action struct {
+	When       time.Time
+	SkipPrompt bool
 }
 
 func NextCheckIn(now time.Time, options Options) (time.Time, error) {
@@ -30,4 +39,21 @@ func NextCheckIn(now time.Time, options Options) (time.Time, error) {
 	}
 
 	return next, nil
+}
+
+func NextAction(now time.Time, options Options, state runtimestate.State) (Action, error) {
+	if state.PromptActive {
+		return Action{When: now, SkipPrompt: true}, nil
+	}
+
+	if !state.SnoozedUntil.IsZero() && state.SnoozedUntil.After(now) {
+		return Action{When: state.SnoozedUntil}, nil
+	}
+
+	next, err := NextCheckIn(now, options)
+	if err != nil {
+		return Action{}, err
+	}
+
+	return Action{When: next}, nil
 }
