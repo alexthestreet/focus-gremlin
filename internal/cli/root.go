@@ -19,7 +19,7 @@ func NewRootCommand() *Command {
 		Short: "A periodic focus check-in companion",
 	}
 
-	root.AddCommand(NewDaemonCommand(), NewPromptCommand(), NewConfigCommand())
+	root.AddCommand(NewDaemonCommand(), NewPromptCommand(), NewConfigCommand(), NewStatusCommand())
 
 	return root
 }
