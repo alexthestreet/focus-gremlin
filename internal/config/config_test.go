@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
@@ -32,6 +35,41 @@ func TestDefaultConfig(t *testing.T) {
 			if got[i] != want[i] {
 				t.Fatalf("expected status %d to be %q, got %q", i, want[i], got[i])
 			}
+		}
+	}
+}
+
+func TestSaveLoadRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "config.json")
+	want := DefaultConfig()
+	want.IntervalMinutes = 45
+	want.ActiveStart = "08:30"
+	want.TerminalCommand = []string{"kitty", "--hold"}
+
+	if err := Save(path, want); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	got, err := Load(path)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if got.IntervalMinutes != want.IntervalMinutes {
+		t.Fatalf("expected interval %d, got %d", want.IntervalMinutes, got.IntervalMinutes)
+	}
+
+	if got.ActiveStart != want.ActiveStart {
+		t.Fatalf("expected active start %q, got %q", want.ActiveStart, got.ActiveStart)
+	}
+
+	if len(got.TerminalCommand) != len(want.TerminalCommand) {
+		t.Fatalf("expected terminal command length %d, got %d", len(want.TerminalCommand), len(got.TerminalCommand))
+	}
+
+	for i := range want.TerminalCommand {
+		if got.TerminalCommand[i] != want.TerminalCommand[i] {
+			t.Fatalf("expected terminal command %d to be %q, got %q", i, want.TerminalCommand[i], got.TerminalCommand[i])
 		}
 	}
 }
