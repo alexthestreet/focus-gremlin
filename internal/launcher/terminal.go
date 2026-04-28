@@ -15,10 +15,23 @@ func BuildCommand(terminalCommand []string, appCommand []string) (*exec.Cmd, err
 }
 
 func Launch(terminalCommand []string, appCommand []string) error {
-	cmd, err := BuildCommand(terminalCommand, appCommand)
+	cmd, err := Start(terminalCommand, appCommand)
 	if err != nil {
 		return err
 	}
 
-	return cmd.Start()
+	return cmd.Wait()
+}
+
+func Start(terminalCommand []string, appCommand []string) (*exec.Cmd, error) {
+	cmd, err := BuildCommand(terminalCommand, appCommand)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
 }

@@ -1,10 +1,13 @@
 package cli
 
 import (
-	"fmt"
+	"context"
+	"path/filepath"
+	"time"
 
 	"github.com/alexthestreet/focus-gremlin/internal/config"
-	"github.com/alexthestreet/focus-gremlin/internal/launcher"
+	"github.com/alexthestreet/focus-gremlin/internal/daemon"
+	"github.com/alexthestreet/focus-gremlin/internal/scheduler"
 )
 
 func NewDaemonCommand() *Command {
@@ -17,12 +20,22 @@ func NewDaemonCommand() *Command {
 				return err
 			}
 
-			_, err = launcher.BuildCommand(cfg.TerminalCommand, []string{"focus-gremlin", "prompt"})
+			runtimeDir, err := config.RuntimeDir()
 			if err != nil {
-				return fmt.Errorf("prepare prompt launcher: %w", err)
+				return err
 			}
 
-			return nil
+			return daemon.Run(context.Background(), daemon.Options{
+				LockPath:  filepath.Join(runtimeDir, "daemon.lock"),
+				StatePath: filepath.Join(runtimeDir, "state.json"),
+				Scheduler: scheduler.Options{
+					Interval:    time.Duration(cfg.IntervalMinutes) * time.Minute,
+					ActiveStart: cfg.ActiveStart,
+					ActiveEnd:   cfg.ActiveEnd,
+				},
+				TerminalCommand: cfg.TerminalCommand,
+				AppCommand:      []string{"focus-gremlin", "prompt"},
+			})
 		},
 	}
 }
