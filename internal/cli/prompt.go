@@ -22,16 +22,21 @@ func NewPromptCommand() *Command {
 				return err
 			}
 
-			model := prompttui.NewModel(cfg.Statuses)
-			program := tea.NewProgram(model)
-			finalModel, err := program.Run()
-			if err != nil {
-				return fmt.Errorf("run prompt: %w", err)
-			}
+			choice := os.Getenv("FOCUS_GREMLIN_PROMPT_CHOICE")
+			if choice == "" {
+				model := prompttui.NewModel(cfg.Statuses)
+				program := tea.NewProgram(model)
+				finalModel, err := program.Run()
+				if err != nil {
+					return fmt.Errorf("run prompt: %w", err)
+				}
 
-			resolved, ok := finalModel.(prompttui.Model)
-			if !ok {
-				return fmt.Errorf("unexpected prompt model type %T", finalModel)
+				resolved, ok := finalModel.(prompttui.Model)
+				if !ok {
+					return fmt.Errorf("unexpected prompt model type %T", finalModel)
+				}
+
+				choice = resolved.SelectedChoice()
 			}
 
 			store, err := storage.Open(promptDataPath())
@@ -41,7 +46,7 @@ func NewPromptCommand() *Command {
 			defer store.Close()
 
 			return checkin.SubmitResponse(store, checkin.Result{
-				Status:     resolved.SelectedChoice(),
+				Status:     choice,
 				RecordedAt: time.Now().UTC(),
 			})
 		},
