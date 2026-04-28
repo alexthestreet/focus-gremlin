@@ -65,7 +65,7 @@ This is a **mirror with a timer**.
 
 ```bash
 # clone the repo
-git clone https://github.com/yourusername/focus-gremlin.git
+git clone https://github.com/alexthestreet/focus-gremlin.git
 
 cd focus-gremlin
 
