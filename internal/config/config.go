@@ -23,5 +23,6 @@ func DefaultConfig() Config {
 			"deep_in_the_void",
 			"snooze",
 		},
+		TerminalCommand: []string{"x-terminal-emulator", "-e"},
 	}
 }
