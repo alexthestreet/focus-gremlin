@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -20,6 +21,11 @@ func NewDaemonCommand() *Command {
 				return err
 			}
 
+			executable, err := os.Executable()
+			if err != nil {
+				return err
+			}
+
 			runtimeDir, err := config.RuntimeDir()
 			if err != nil {
 				return err
@@ -34,10 +40,14 @@ func NewDaemonCommand() *Command {
 					ActiveEnd:   cfg.ActiveEnd,
 				},
 				TerminalCommand: cfg.TerminalCommand,
-				AppCommand:      []string{"focus-gremlin", "prompt"},
+				AppCommand:      promptAppCommand(executable),
 			})
 		},
 	}
+}
+
+func promptAppCommand(executable string) []string {
+	return []string{executable, "prompt"}
 }
 
 func loadDaemonConfig() (config.Config, error) {

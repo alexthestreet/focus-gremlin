@@ -19,6 +19,7 @@ type Options struct {
 	AppCommand      []string
 	Now             func() time.Time
 	Launch          func([]string, []string) (*exec.Cmd, error)
+	Sleep           func(context.Context, time.Duration) error
 	PollInterval    time.Duration
 }
 
@@ -35,9 +36,14 @@ func Run(ctx context.Context, options Options) error {
 	if options.Launch == nil {
 		options.Launch = launcher.Start
 	}
+	if options.Sleep == nil {
+		options.Sleep = waitFor
+	}
 	if options.PollInterval <= 0 {
 		options.PollInterval = time.Second
 	}
+
+	var scheduledAt time.Time
 
 	for {
 		select {
@@ -52,20 +58,24 @@ func Run(ctx context.Context, options Options) error {
 			return err
 		}
 
-		action, err := scheduler.NextAction(now, options.Scheduler, state)
-		if err != nil {
-			return err
-		}
-
-		if action.SkipPrompt {
-			if err := waitFor(ctx, options.PollInterval); err != nil {
+		if state.PromptActive {
+			if err := options.Sleep(ctx, options.PollInterval); err != nil {
 				return nil
 			}
 			continue
 		}
 
-		if wait := time.Until(action.When); wait > 0 {
-			if err := waitFor(ctx, wait); err != nil {
+		if !state.SnoozedUntil.IsZero() && state.SnoozedUntil.After(now) {
+			scheduledAt = state.SnoozedUntil.UTC()
+		} else if scheduledAt.IsZero() {
+			scheduledAt, err = scheduler.NextCheckIn(now, options.Scheduler)
+			if err != nil {
+				return err
+			}
+		}
+
+		if wait := scheduledAt.Sub(now); wait > 0 {
+			if err := options.Sleep(ctx, wait); err != nil {
 				return nil
 			}
 			continue
@@ -74,6 +84,7 @@ func Run(ctx context.Context, options Options) error {
 		if err := markPromptActive(options.StatePath); err != nil {
 			return err
 		}
+		scheduledAt = time.Time{}
 
 		cmd, err := options.Launch(options.TerminalCommand, options.AppCommand)
 		if err != nil {
@@ -82,7 +93,7 @@ func Run(ctx context.Context, options Options) error {
 		}
 
 		go waitForPromptExit(cmd, options.StatePath)
-		if err := waitFor(ctx, options.PollInterval); err != nil {
+		if err := options.Sleep(ctx, options.PollInterval); err != nil {
 			return nil
 		}
 	}

@@ -3,10 +3,12 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alexthestreet/focus-gremlin/internal/checkin"
 	"github.com/alexthestreet/focus-gremlin/internal/config"
+	runtimestate "github.com/alexthestreet/focus-gremlin/internal/runtime"
 	"github.com/alexthestreet/focus-gremlin/internal/storage"
 	prompttui "github.com/alexthestreet/focus-gremlin/internal/tui/prompt"
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,10 +47,15 @@ func NewPromptCommand() *Command {
 			}
 			defer store.Close()
 
-			return checkin.SubmitResponse(store, checkin.Result{
+			now := time.Now().UTC()
+			if err := checkin.SubmitResponse(store, checkin.Result{
 				Status:     choice,
-				RecordedAt: time.Now().UTC(),
-			})
+				RecordedAt: now,
+			}); err != nil {
+				return err
+			}
+
+			return updatePromptState(choice, cfg, now)
 		},
 	}
 }
@@ -73,4 +80,37 @@ func promptDataPath() string {
 	}
 
 	return path
+}
+
+func updatePromptState(choice string, cfg config.Config, now time.Time) error {
+	statePath, err := promptStatePath()
+	if err != nil {
+		return nil
+	}
+
+	state, err := runtimestate.LoadState(statePath)
+	if err != nil {
+		return err
+	}
+
+	state.PromptActive = false
+	state.SnoozedUntil = time.Time{}
+	if choice == "snooze" {
+		state.SnoozedUntil = now.Add(time.Duration(cfg.SnoozeMinutes) * time.Minute)
+	}
+
+	return runtimestate.SaveState(statePath, state)
+}
+
+func promptStatePath() (string, error) {
+	if value := os.Getenv("FOCUS_GREMLIN_STATE_PATH"); value != "" {
+		return value, nil
+	}
+
+	runtimeDir, err := config.RuntimeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(runtimeDir, "state.json"), nil
 }
